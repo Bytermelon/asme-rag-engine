@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# 密钥
+.env
+
+# 向量库
+chroma_db/
+
+# 数据与版权文件（ASME 原文 + 派生的全文，都不提交）
+*.pdf
+child_chunks.json
+parent_chunks.json
+parsed_corpus.json
+output_tables.md
