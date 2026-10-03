@@ -26,12 +26,12 @@ class RAGPipeline:
             generator: LLM 生成器（可选，默认创建）
         """
         self.vector_storage = vector_storage
-        self.reranker = reranker
+        self.reranker = reranker or Reranker()
         self.prompt_builder = prompt_builder or PromptBuilder()
         self.generator = generator or RAGGenerator()
         logging.info("RAGPipeline 初始化完成")
 
-    def query(self, query:str) -> str:
+    def query(self, query: str, stream: bool = False) -> dict:
         # step1:检索
         retrievalchunk = self.vector_storage.search(query)
         
@@ -42,14 +42,18 @@ class RAGPipeline:
         parent_ref_id = []
         for candidate in candidates:
             pid = candidate.chunk.metadata['parent_ref_id']
-            parent_ref_id.append(pid)
+            if pid not in parent_ref_id:
+                parent_ref_id.append(pid)
         chunks = self.vector_storage.get_parent(parent_ref_id)
 
         # step4:生成回答
         prompt = self.prompt_builder.build(query,chunks)
         answer = self.generator.generate(prompt)
 
-        return answer
+        # step5: 返回 dict；citations 是引用页码列表（page_15 → 15）
+        citations = [pid.replace('page_', '') for pid in parent_ref_id]
+
+        return {"answer": answer, "citations": citations}
 
 
 if __name__ == '__main__':
@@ -63,9 +67,14 @@ if __name__ == '__main__':
         prompt_builder=promptbuild,
         generator=generator
     )
-    answer = [
-        ragpipeline.query("Class 150 法兰在多少温度以上可能泄漏？"),
-        ragpipeline.query("法兰的压力等级有哪些？"),
-        ragpipeline.query("低温下碳钢法兰有什么风险？"),
+    questions = [
+        "Class 150 法兰在多少温度以上可能泄漏？",
+        "法兰的压力等级有哪些？",
+        "低温下碳钢法兰有什么风险？",
     ]
-    print(answer)
+    for q in questions:
+        r = ragpipeline.query(q)
+        print("问题:", q)
+        print("答案:", r["answer"])
+        print("引用页码:", r["citations"])
+        print("-" * 40)

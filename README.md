@@ -1,65 +1,74 @@
-# 工业规范问答 RAG 系统
+# Advanced RAG Engine —— ASME B16.5 法兰标准问答
 
-基于父子块双轨召回 + BGE-Reranker 精排 + DeepSeek LLM 生成的工业规范问答系统。
+基于 **MinerU 文档解析 + ChromaDB 向量检索 + 重排序 + 父块召回** 的 RAG 问答系统，
+针对 ASME B16.5-2025《管道法兰与法兰管件》标准做中文问答。
 
-## 功能特性
+## 流程
 
-- **父子块双轨召回**：子块 256 token 用于向量检索，父块 1024 token 恢复完整上下文
-- **BGE-Reranker 精排**：Bi-Encoder 召回 Top-20，Cross-Encoder 精排 Top-5
-- **幻觉防护**：System Prompt 约束 + 引用标注 + 不确定性表达
-- **模块化设计**：VectorStorage、Reranker、PromptBuilder、RAGGenerator 解耦
+PDF（ASME B16.5）
+ → [mineru parse] 提取 Markdown + 页码标记
+ → [mineru_parser.py] 解析为 block（文本 / 表格 / 标题…）
+ → [blocks_to_chunks.py] 切子块 + 父块（父块保留整页上下文）
+ → [vector_storage.py] 子块向量化入库 ChromaDB
+ → [rag_pipeline.py] 检索 → 重排序 → 父块召回 → 生成
+ → [app.py] Flask API
 
-## 技术架构
-Query → VectorStorage (检索) → Reranker (精排) → PromptBuilder (拼接) → RAGGenerator (生成) → Answer
- 
+## 技术栈
+
+- 文档解析：MinerU 4.x（`mineru parse`）
+- 向量库：ChromaDB
+- 嵌入模型：`shibing624/text2vec-base-chinese`
+- 重排序模型：`BAAI/bge-reranker-base`
+- 生成：DeepSeek Chat API
+- 服务框架：Flask
+
 ## 安装
+
 ```bash
-git clone https://github.com/Bytermelon/rag_1.git
-cd rag_1
 pip install -r requirements.txt
-export DEEPSEEK_API_KEY="your-api-key"
-export HF_ENDPOINT="https://hf-mirror.com"
+
+数据准备
+
+▎ ⚠️ 本项目不包含 PDF 原文、解析全文及向量索引（版权原因），需自行准备。
+
+1. MinerU 解析（务必加 --pages all，否则只解析前 10 页）：
+
+mineru parse <pdf路径> --pages all --output <输出目录>
+2. 跑分块 + 建库脚本，生成本地 JSON 和 ChromaDB 索引：
+
+python blocks_to_chunks.py
+3. 启动服务：
+
 python app.py
-```
 
-## 使用示例
-bash
-### 健康检查
-curl http://localhost:5000/health
+API
 
-### 问答请求
-curl -X POST http://localhost:5000/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "什么是压力容器设计规范？"}'
+┌──────┬─────────┬──────────────────────────────┐
+│ 方法 │  路径   │             说明             │
+├──────┼─────────┼──────────────────────────────┤
+│ GET  │ /health │ 健康检查                     │
+├──────┼─────────┼──────────────────────────────┤
+│ POST │ /query  │ 问答，body：{"query": "..."} │
+└──────┴─────────┴──────────────────────────────┘
 
-## API 文档
+/query 返回：
 
-| 端点        | 方法   | 参数                                       | 响应                                                       |
-| :-------- | :--- | :--------------------------------------- | :------------------------------------------------------- |
-| `/health` | GET  | 无                                        | `{"status": "ok"}`                                       |
-| `/query`  | POST | `query` (str), `stream` (bool, 默认 false) | `{"answer": ..., "citations": [...], "metadata": {...}}` |
+{
+  "query": "Class 150 法兰在多少温度以上可能泄漏？",
+  "answer": "……",
+  "citations": ["31", "49"]
+}
 
-## 项目结构
-plain
-├── app.py              # Flask API 入口
-├── rag_pipeline.py     # RAG Pipeline (串联所有模块)
-├── vector_storage.py   # 向量存储 (ChromaDB + text2vec)
-├── reranker.py         # 重排序 (BGE-Reranker)
-├── prompt_builder.py   # Prompt 拼接
-├── rag_generator.py    # LLM 生成 (DeepSeek API)
-├── config.py           # 配置管理
-└── requirements.txt    # 依赖列表
+配置
 
-## 性能指标
-表格
-| 环节          | 耗时      | 占比  |
-| :---------- | :------ | :-- |
-| 向量检索        | ~200ms  | 7%  |
-| Reranker 精排 | ~800ms  | 27% |
-| LLM 生成      | ~2000ms | 66% |
-| 其他          | ~100ms  | 3%  |
+在 .env 中配置 API key（不要硬编码、不要提交）：
 
-## 后续计划
-[ ] 升级 BGE-M3 多语言模型，支持英文工业标准
-[ ] 引入 Layout-Aware PDF 解析，保留表格结构
-[ ] 接入 LangGraph，实现 Agentic RAG
+DEEPSEEK_API_KEY=sk-xxx
+HF_ENDPOINT=https://hf-mirror.com
+
+版权声明
+
+ASME B16.5 为 ASME 版权标准。本仓库仅包含代码，不包含 PDF 原文、解析全文及向量索引；
+数据需使用者自行准备，仅用于个人学习研究。
+
+---

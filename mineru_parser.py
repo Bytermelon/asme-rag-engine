@@ -1,4 +1,5 @@
 import re
+from html import unescape
 
 def parse_markdown_to_blocks(md_text: str) -> list[dict]:
       """把 MinerU 的 markdown 输出切成 block 列表"""
@@ -101,24 +102,71 @@ def is_noise(line:str) -> bool:
             return True
       return False
 
-def _merge_table_captions(blocks:list[dict]) -> list[dict]:
-      """ 优化表格block（合并表格标题与表格）"""
-      i = 0
-      final_blocks = []
-      while i < len(blocks):
-            if i+1 < len(blocks) and blocks[i]['type'] == 'text' and blocks[i]['text'].startswith('Table') and blocks[i+1]['type'] == 'table':
-                  final_blocks.append({
-                        'page':blocks[i+1]['page'],
-                        'type':'table',
-                        'caption':blocks[i]['text'],
-                        'text':blocks[i+1]['text']
-                  })
-                  i = i+2
-            else:
-                  final_blocks.append(blocks[i])
-                  i = i+1
-      return final_blocks
+def _merge_table_captions(blocks: list[dict]) -> list[dict]:
+    """优化表格block：把 'Table X ...' 标题块合并到后面的表格块里"""
+    i = 0
+    final_blocks = []
+    while i < len(blocks):
+        if (i + 1 < len(blocks)
+                and blocks[i]['type'] == 'text'
+                and blocks[i]['text'].startswith('Table')
+                and blocks[i + 1]['type'] == 'table'):
+            final_blocks.append({
+                'page': blocks[i + 1]['page'],
+                'type': 'table',
+                'caption': blocks[i]['text'],
+                'text': blocks[i + 1]['text'],
+            })
+            i = i + 2
+        else:
+            final_blocks.append(blocks[i])
+            i = i + 1
+    return final_blocks
 
+def _collect_text(node) -> str:
+    """把 MinerU 多态的 content 字段，递归扒成纯文本"""
+    if isinstance(node, str):
+      return node
+    if isinstance(node, list):
+      return "".join(_collect_text(x) for x in node)
+    if isinstance(node, dict):
+      return _collect_text(node.get("content", ""))
+    return ""
+
+def html_table_to_rows(table_html: str) -> list[str]:
+    """把 MinerU 的 <table> HTML 解析成一行一行的 '| ' 分隔文本"""
+    rows = []
+    for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.S):
+      cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', tr, re.S)
+      cells = [unescape(re.sub(r'<[^>]+>', '', c)).strip() for c in cells]
+      if cells:
+            rows.append(' | '.join(cells))
+    return rows
+
+def parse_json_to_blocks(data: dict) -> list[dict]:
+    """把 MinerU middle_json 的 dict 切成 block 列表（只转换，不读文件）"""
+    DROP_TYPES = {"header", "footer", "page_number", "page_footnote", "index", "chart"}
+    blocks = []
+    for page in data["pages"]:
+        pg = page["page_idx"] + 1
+        for b in page["blocks"]:
+            t = b["type"]
+            if t in DROP_TYPES:
+                continue
+            if t == "table":
+                text = html_table_to_rows(_collect_text(b.get("content", "")))
+            else:
+                text = _collect_text(b.get("content", ""))
+            if isinstance(text, list):
+                if not text:
+                    continue
+            else:
+                text = text.strip()
+                if not text:
+                    continue
+            blocks.append({"type": "table" if t == "table" else "text",
+                           "text": text, "page": pg})
+    return blocks
 
 if __name__  == '__main__':
       with open ("output_tables.md", "r", encoding="utf-8") as f:

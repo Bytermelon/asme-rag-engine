@@ -70,26 +70,22 @@ def  write_chunks_for_rag1(children:list[dict], parents:list[dict]) -> None:
     return None
     
 
-
-
-
-
-
 if __name__ == '__main__':
     from mineru_parser import parse_markdown_to_blocks
-    with open ("output_tables.md", "r", encoding="utf-8") as f:
+
+    with open (r"output.md", "r", encoding="utf-8") as f:
         md_text = f.read()
-    parse_block = parse_markdown_to_blocks(md_text=md_text)
+    parse_block = parse_markdown_to_blocks(md_text)
     children = blocks_to_chunks(parse_block)
     parents = blocks_to_parents(parse_block)
     write_chunks_for_rag1(children=children,parents=parents)
 
-    # print(f'子块数量为{len(children)}')
-    # print(f'父块数量为{len(parents)}')
-    # print(f'页数量为{len(set(b['page'] for b in parse_block))}')
-    # print(f'父块第一块{parents[0]}')
-        
-
+    page_count = len({b['page'] for b in parse_block})
+    print(f'子块数量为{len(children)}')
+    print(f'父块数量为{len(parents)}')
+    print(f'页数量为{page_count}')
+   
+    
 
         
 
