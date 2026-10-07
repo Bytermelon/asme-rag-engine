@@ -1,4 +1,4 @@
-"""检索评测：在QA 集上对比「有无重排」的 Hit@k
+"""检索评测：在 QA 集上对比「有无重排」的 Hit@k（按页去重）
 
 用法（在项目根目录运行）:
     python eval/evaluate.py eval/qa.json
@@ -8,12 +8,22 @@ import json
 import sys
 from pathlib import Path
 
-# 保证能从项目根目录导入 vector_storage / reranker / config
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from vector_storage import VectorStorage
 from reranker import Reranker
 from config import RERANK_TOP_N
+
+
+def dedup(seq):
+    """按出现顺序去重（去掉重复页码，保持原有排序）"""
+    seen = set()
+    out = []
+    for x in seq:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
 
 
 def hit(golden_pages, top_pages):
@@ -45,16 +55,16 @@ def main() -> None:
         golden = [str(p) for p in item["relevant_pages"]]
 
         retrieved = storage.search(q)                 # 按相似度排序的 top-K
-        no_rerank_pages = [str(c.page_num) for c in retrieved]
+        no_rerank_pages = dedup(str(c.page_num) for c in retrieved)
 
         ranked = reranker.rerank(q, retrieved, RERANK_TOP_N)
-        rerank_pages = [str(c.chunk.page_num) for c in ranked]
+        rerank_pages = dedup(str(c.chunk.page_num) for c in ranked)
 
         recalled = hit(golden, no_rerank_pages)       # 正确答案是否在 top-20 里
 
         print(f"\nQ: {q}")
         print(f"  无重排 top-5: {no_rerank_pages[:5]}")
-        print(f"  有重排 top-5: {rerank_pages}")
+        print(f"  有重排 top-5: {rerank_pages[:5]}")
         print(f"  黄金页: {golden}  {'✅ 召回命中' if recalled else '❌ 召回未命中(top-20 都没有)'}")
 
         for k in ks:

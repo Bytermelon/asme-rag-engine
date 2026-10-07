@@ -26,45 +26,61 @@ PDF（ASME B16.5）
 
 ## 安装
 
-```bash pip install -r requirements.txt```
+```bash
+pip install -r requirements.txt
+# 解析依赖 MinerU（较重，单独装）
+pip install "mineru[all]"
+```
 
-数据准备
+## 数据准备
 
-▎ ⚠️ 本项目不包含 PDF 原文、解析全文及向量索引（版权原因），需自行准备。
+> ⚠️ 本项目**不包含** PDF 原文、解析全文及向量索引（版权原因），需自行准备。
 
-1. MinerU 解析（务必加 --pages all，否则只解析前 10 页）：
+1. 用 MinerU 解析 PDF（务必加 `--pages all`，否则只解析前 10 页）：
 
+```bash
 mineru parse <pdf路径> --pages all --output <输出目录>
-2. 跑分块 + 建库脚本，生成本地 JSON 和 ChromaDB 索引：
+```
 
-python blocks_to_chunks.py
+2. 一键建库（解析 → 分块 → 写 JSON → 入库 ChromaDB）：
+
+```bash
+python build_index.py <MinerU 输出文件>   # 支持 .md 或 .json
+```
+
 3. 启动服务：
 
+```bash
 python app.py
+```
 
-API
+## API
 
 | 方法 | 路径      | 说明                        |
 | ---- | --------- | --------------------------- |
 | GET  | `/health` | 健康检查                    |
 | POST | `/query`  | 问答，body：`{"query": "..."}` |
 
-/query 返回：
+`/query` 返回：
 
+```json
 {
   "query": "Class 150 法兰在多少温度以上可能泄漏？",
   "answer": "……",
   "citations": ["31", "49"]
 }
+```
 
-配置
+## 配置
 
-在 .env 中配置 API key（不要硬编码、不要提交）：
+在项目根目录建 `.env` 配置 API key（**不要硬编码、不要提交**）：
 
+```bash
 DEEPSEEK_API_KEY=sk-xxx
 HF_ENDPOINT=https://hf-mirror.com
+```
 
-版权声明
+## 版权声明
 
 ASME B16.5 为 ASME 版权标准。本仓库仅包含代码，不包含 PDF 原文、解析全文及向量索引；
 数据需使用者自行准备，仅用于个人学习研究。
