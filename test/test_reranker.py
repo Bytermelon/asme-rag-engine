@@ -48,13 +48,9 @@ def test_rerank_result_fields(reranker, sample_candidates):
     assert isinstance(results[0].chunk, RetrievedChunk)
 
 def test_rerank_model_not_loaded():
-    """测试模型未加载时抛出异常"""
-    r = Reranker()
-    # r.model = None  # 模拟加载失败
-    
+    """模型未加载时抛 RuntimeError（不真实加载模型，秒过）"""
+    r = Reranker.__new__(Reranker)   # 跳过 __init__，不加载模型
+    r.model = None
+    r.tokenizer = None
     with pytest.raises(RuntimeError):
-        r.rerank(
-            "测试",
-            [RetrievedChunk(chunk_id="1", content="test", score=0.5)],
-            top_n=1
-        )
+        r.rerank("q", [RetrievedChunk(chunk_id="1", content="x")], top_n=3)

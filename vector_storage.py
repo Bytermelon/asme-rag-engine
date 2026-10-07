@@ -67,36 +67,6 @@ class VectorStorage:
                 })
         return result
 
-if __name__ == '__main__':
-    storage = VectorStorage()
-    # chunks = storage.load(CHILD_JSON)   # 读文件——调用方的活
-    # storage.store(chunks)
-    # r = storage.search("法兰")
-    # print(r)
-    
-    
-    import re
-    child_content = storage.load(CHILD_JSON)
-    blank_num = 0
-    mark_num = 0
-    ocr_num = 0
-    OCR_GARBAGE = re.compile(r'[ðÐÞþøØ]')
-    for content in child_content:
-        if 'INTENTIONALLY LEFT BLANK' in content['searchable_content']:
-            blank_num += 1
-        if '$' in content['searchable_content']:
-            mark_num += 1
-            print(f"公式 {content['child_id']}: ...{content['searchable_content']}...")
-        m = OCR_GARBAGE.search(content['searchable_content'])   
-        if m:
-            start = max(0, m.start() - 20)
-            end = m.end() + 20
-            ocr_num += 1
-            print(f"乱码 {content['child_id']}: ...{content['searchable_content'][start:end]}...")
-    print(f'空白说明{blank_num}个')
-    print(f'公式{mark_num}个')
-    print(f'乱码{ocr_num}个')
-
         
 
     

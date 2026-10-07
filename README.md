@@ -13,19 +13,20 @@ PDF（ASME B16.5）
  → [rag_pipeline.py] 检索 → 重排序 → 父块召回 → 生成
  → [app.py] Flask API
 
+解析步骤需先 pip install "mineru[all]"
+
 ## 技术栈
 
 - 文档解析：MinerU 4.x（`mineru parse`）
 - 向量库：ChromaDB
-- 嵌入模型：`shibing624/text2vec-base-chinese`
+- 嵌入模型：`BAAI/bge-m3`
 - 重排序模型：`BAAI/bge-reranker-base`
 - 生成：DeepSeek Chat API
 - 服务框架：Flask
 
 ## 安装
 
-```bash
-pip install -r requirements.txt
+```bash pip install -r requirements.txt```
 
 数据准备
 
@@ -43,13 +44,10 @@ python app.py
 
 API
 
-┌──────┬─────────┬──────────────────────────────┐
-│ 方法 │  路径   │             说明             │
-├──────┼─────────┼──────────────────────────────┤
-│ GET  │ /health │ 健康检查                     │
-├──────┼─────────┼──────────────────────────────┤
-│ POST │ /query  │ 问答，body：{"query": "..."} │
-└──────┴─────────┴──────────────────────────────┘
+| 方法 | 路径      | 说明                        |
+| ---- | --------- | --------------------------- |
+| GET  | `/health` | 健康检查                    |
+| POST | `/query`  | 问答，body：`{"query": "..."}` |
 
 /query 返回：
 
@@ -72,3 +70,25 @@ ASME B16.5 为 ASME 版权标准。本仓库仅包含代码，不包含 PDF 原�
 数据需使用者自行准备，仅用于个人学习研究。
 
 ---
+
+## 架构演进 / Roadmap
+
+当前版本是**单标准（B16.5）文本问答 RAG**。设计上已把「处理哪本标准」与「怎么处理」解耦，
+可平滑扩展到多标准与结构化查询。
+
+### 现状（v1）
+- [x] MinerU 解析 Markdown → block 结构化（文本 / 表格 / 标题）
+- [x] 子块切分 + 父块召回（保留整页上下文）
+- [x] ChromaDB 向量检索 + bge-reranker 重排序
+- [x] Flask API：`/health`、`/query`（返回 answer + citations）
+
+### 规划（v2 · 多标准扩展）
+- [ ] 数据按 `data/{standard}/` 命名空间隔离
+- [ ] 通用 ingest 脚本：`python ingest.py --standard xxx --pdf xxx.pdf`
+- [ ] `config.py` 增加 `STANDARD_NAME` 参数，代码中去掉 B16.5 字面量
+
+### 规划（v3 · 结构化查询 + Agent）
+- [ ] 表格数据确定性查询（NPS / Class / 材料 → 精确尺寸与额定值）
+- [ ] 每本标准一个 schema 注册表
+- [ ] 查询路由层（Router）：概念问答走 RAG，查表走结构化 lookup
+- [ ] 将 RAG 与查表封装为 Agent 可调用的工具

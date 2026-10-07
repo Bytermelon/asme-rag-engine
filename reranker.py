@@ -1,6 +1,4 @@
-from config import HF_ENDPOINT, RERANKER_MODEL
-import os
-os.environ["HF_ENDPOINT"] = HF_ENDPOINT
+from config import RERANKER_MODEL
 
 import logging
 from typing import List, Dict, Any, Optional

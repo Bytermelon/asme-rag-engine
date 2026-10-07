@@ -1,11 +1,6 @@
-import os
 from flask import Flask, request, jsonify
 from vector_storage import VectorStorage
 from rag_pipeline import RAGPipeline
-from config import HF_ENDPOINT
-
-# 设置环境变量
-os.environ["HF_ENDPOINT"] = HF_ENDPOINT
 
 app = Flask(__name__)
 
